@@ -126,7 +126,6 @@ func searchK8SConifg() (filePath map[string]string) {
 		path = path[:index]
 		kubeconfigDir = filepath.Join(path, "k8s", "conf")
 	}
-
 	rd, err := ioutil.ReadDir(kubeconfigDir)
 	if err != nil {
 		panic(err.Error())

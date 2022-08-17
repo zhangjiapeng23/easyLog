@@ -5,7 +5,6 @@ import (
 	"context"
 	"easyLog/filters"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 
@@ -129,16 +128,18 @@ func (client *Client) FollowLogForPods(ns string, podList *v1.PodList,
 	filterLog := make(chan *filters.Log)
 	quit := make(chan int, 1)
 	for _, pod := range podList.Items {
-		go client.followLogForPods(log, ns, pod.Name)
+		go client.followLogForPods(log, quit, ns, pod.Name)
 	}
 	go filter(log, filterLog, extra...)
 	SetupCloseHandler(quit)
 	for {
 		select {
-		case <-quit:
-			fmt.Println("Closing log output...")
+		case signal := <-quit:
+			if signal == 0 {
+				fmt.Println("Closing log output...")
+			}
 			return
-		case log:= <-filterLog:
+		case log := <-filterLog:
 			log.String()
 		}
 	}
@@ -150,44 +151,55 @@ func (c *Client) PrintLogForPods(ns string, PodList *v1.PodList,
 	filterLog := make(chan *filters.Log)
 	quit := make(chan int, 1)
 	for _, pod := range PodList.Items {
-		go c.printLogForPod(log, ns, pod.Name)
+		go c.printLogForPod(log, quit, ns, pod.Name)
 	}
 	go filter(log, filterLog, extra...)
 	SetupCloseHandler(quit)
 	for {
 		select {
-		case <-quit:
-			fmt.Println("Closing log output...")
+		case signal := <-quit:
+			if signal == 0 {
+				fmt.Println("Closing log output...")
+			}
 			return
-		case log:= <-filterLog:
+		case log := <-filterLog:
 			log.String()
 		}
 	}
 }
 
-func (client *Client) followLogForPods(log chan []byte, ns string, podName string) {
+func (client *Client) followLogForPods(log chan []byte, quit chan int, ns string, podName string) {
+	var sinceTime int64 = 60 * 60 * 2
 	opts := &v1.PodLogOptions{
-		Follow: true,
+		Follow:       true,
+		SinceSeconds: &sinceTime,
 	}
 	resp := client.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
 	readCloser, err := resp.Stream(context.TODO())
 	if err != nil {
-		panic(err.Error())
+		// panic(err.Error())
+		fmt.Fprintln(os.Stdout, err.Error())
+		return
 	}
 	defer readCloser.Close()
 	r := bufio.NewReader(readCloser)
 	for {
 		bytes, err := r.ReadBytes('\n')
 		if err != nil {
-			panic(err.Error())
+			// panic(err.Error())
+			fmt.Fprintln(os.Stderr, err.Error())
+			quit <- 1
+			return
 		}
 		log <- bytes
 	}
 }
 
-func (c *Client) printLogForPod(log chan []byte, ns string, podName string) {
+func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podName string) {
+	var sinceTime int64 = 60 * 60 * 2
 	opts := &v1.PodLogOptions{
-		Follow: false,
+		Follow:       false,
+		SinceSeconds: &sinceTime,
 	}
 
 	resp := c.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
@@ -200,10 +212,12 @@ func (c *Client) printLogForPod(log chan []byte, ns string, podName string) {
 	for {
 		bytes, err := r.ReadBytes('\n')
 		if err != nil {
-			if err != io.EOF {
-				panic(err.Error())
-			}
-			break
+			// if err != io.EOF {
+			// 	panic(err.Error())
+			// }
+			fmt.Fprintln(os.Stderr, err.Error())
+			quit <- 1
+			return
 		}
 		log <- bytes
 	}
@@ -215,6 +229,6 @@ func SetupCloseHandler(quit chan int) {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		quit <- 1
+		quit <- 0
 	}()
 }

@@ -44,7 +44,6 @@ func InfoFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 		if ok {
 			if lineStartPattern.Match(logMsg) && infoLogPattern.Match(logMsg) {
 				level := infoLogPattern.FindSubmatch(logMsg)[1]
-				fmt.Println(string(logMsg))
 				dateTimeStr := dateTimePattern.FindSubmatch(logMsg)[0]
 				title := strings.Trim(string(titleTimePattern.FindSubmatch(logMsg)[1]), " ")
 				logEntity = NewLog(string(dateTimeStr), string(level), title)
