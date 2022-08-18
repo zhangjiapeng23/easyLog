@@ -5,6 +5,7 @@ import (
 	"context"
 	"easyLog/filters"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 
@@ -212,11 +213,10 @@ func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podNa
 	for {
 		bytes, err := r.ReadBytes('\n')
 		if err != nil {
-			// if err != io.EOF {
-			// 	panic(err.Error())
-			// }
-			fmt.Fprintln(os.Stderr, err.Error())
-			quit <- 1
+			if err != io.EOF {
+				fmt.Fprintln(os.Stderr, err.Error())
+				quit <- 1
+			}
 			return
 		}
 		log <- bytes
