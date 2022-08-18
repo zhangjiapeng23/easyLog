@@ -45,6 +45,6 @@ func (l *Log) String() {
 				fmt.Print(string(logLine))
 			}
 		}
+		util.PrintSplitLine("-")
 	}
-	util.PrintSplitLine("-")
 }
