@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/signal"
 
-	// "path/filepath"
 	"syscall"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -18,7 +17,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	// "k8s.io/client-go/util/homedir"
 )
 
 // single instance
@@ -51,6 +49,7 @@ func NewClient(env string) *Client {
 		if err != nil {
 			panic(err.Error())
 		}
+		// cache k8s env connect
 		clientInstance[env] = &Client{Clientset: clientset, DataCache: &DataCache{Apps: make(map[string]*appsv1.DeploymentList)}}
 	}
 	return clientInstance[env]
@@ -67,43 +66,34 @@ func PathExits(path string) (bool, error) {
 	return false, err
 }
 
-func (client *Client) ListNamespaces() *v1.NamespaceList {
+func (c *Client) ListNamespaces() *v1.NamespaceList {
 	// check namespace whether exit cache
-	if client.DataCache.Namespaces == nil {
-		namespaceList, err := client.Clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if c.DataCache.Namespaces == nil {
+		namespaceList, err := c.Clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			panic(err.Error())
 		}
-		// tmpList := make([]string, len(namespaceList.Items))
-		// for _, namespace := range namespaceList.Items {
-		// 	tmpList = append(tmpList, namespace.Name)
-		// }
-		client.DataCache.Namespaces = namespaceList
+
+		c.DataCache.Namespaces = namespaceList
 	}
-	return client.DataCache.Namespaces
+	return c.DataCache.Namespaces
 }
 
 // get all deployments info under a namespace
-func (client *Client) ListAppsForNamespace(namespace string) *appsv1.DeploymentList {
-	if _, ok := client.DataCache.Apps[namespace]; !ok {
-		deployments, err := client.Clientset.AppsV1().Deployments(namespace).List(context.Background(), metav1.ListOptions{})
+func (c *Client) ListAppsForNamespace(namespace string) *appsv1.DeploymentList {
+	if _, ok := c.DataCache.Apps[namespace]; !ok {
+		deployments, err := c.Clientset.AppsV1().Deployments(namespace).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			panic(err.Error())
 		}
-		// deploymentList := make([]string, len(deployments.Items))
-		// for _, dp := range deployments.Items {
-		// 	fmt.Println(dp.Spec.Selector.MatchLabels)
-		// 	dp.GetLabels()
-		// 	deploymentList = append(deploymentList, dp.Name)
-		// }
-		client.DataCache.Apps[namespace] = deployments
+		c.DataCache.Apps[namespace] = deployments
 	}
-	return client.DataCache.Apps[namespace]
+	return c.DataCache.Apps[namespace]
 }
 
 // get pod info by namespace and deployment
-func (client *Client) ListPodsForApp(ns string, app string) *v1.PodList {
-	deployments := client.ListAppsForNamespace(ns)
+func (c *Client) ListPodsForApp(ns string, app string) *v1.PodList {
+	deployments := c.ListAppsForNamespace(ns)
 	var deployment appsv1.Deployment
 	for _, dp := range deployments.Items {
 		if app == dp.Name {
@@ -115,7 +105,7 @@ func (client *Client) ListPodsForApp(ns string, app string) *v1.PodList {
 		LabelSelector: labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels).String(),
 	}
 
-	pods, err := client.Clientset.CoreV1().Pods(ns).List(context.Background(), listOpt)
+	pods, err := c.Clientset.CoreV1().Pods(ns).List(context.Background(), listOpt)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -123,13 +113,14 @@ func (client *Client) ListPodsForApp(ns string, app string) *v1.PodList {
 	return pods
 }
 
-func (client *Client) FollowLogForPods(ns string, podList *v1.PodList,
+// follo log output
+func (c *Client) FollowLogForPods(ns string, podList *v1.PodList,
 	filter func(log chan []byte, filterLog chan *filters.Log, extra ...string), extra ...string) {
 	log := make(chan []byte)
 	filterLog := make(chan *filters.Log)
 	quit := make(chan int, 1)
 	for _, pod := range podList.Items {
-		go client.followLogForPods(log, quit, ns, pod.Name)
+		go c.followLogForPods(log, quit, ns, pod.Name)
 	}
 	go filter(log, filterLog, extra...)
 	SetupCloseHandler(quit)
@@ -146,6 +137,7 @@ func (client *Client) FollowLogForPods(ns string, podList *v1.PodList,
 	}
 }
 
+// Only print log to current time, doesn't keep output
 func (c *Client) PrintLogForPods(ns string, PodList *v1.PodList,
 	filter func(log chan []byte, filterLog chan *filters.Log, extra ...string), extra ...string) {
 	log := make(chan []byte)
@@ -169,13 +161,13 @@ func (c *Client) PrintLogForPods(ns string, PodList *v1.PodList,
 	}
 }
 
-func (client *Client) followLogForPods(log chan []byte, quit chan int, ns string, podName string) {
+func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, podName string) {
 	var sinceTime int64 = 60 * 60 * 2
 	opts := &v1.PodLogOptions{
 		Follow:       true,
 		SinceSeconds: &sinceTime,
 	}
-	resp := client.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
+	resp := c.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
 	readCloser, err := resp.Stream(context.TODO())
 	if err != nil {
 		// panic(err.Error())

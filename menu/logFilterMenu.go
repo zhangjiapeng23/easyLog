@@ -24,96 +24,103 @@ func NewLogFilterMenu(menuStatus *MenuStatus) *LogFilterMenu {
 	return &LogFilterMenu{menuStatus, &MenuHelper{menuStatus}, map[string]func(log chan []byte,
 		filterLog chan *filters.Log, extra ...string){
 		"Error Filter":   filters.ErrorFilter,
+		"Warn Filter":    filters.WarnFilter,
 		"Info Filter":    filters.InfoFilter,
 		"Keyword Filter": filters.KeywordFilter,
 		"All Filter":     filters.AllFilter,
 	}, make([]string, 0)}
 }
 
-func (Menu *LogFilterMenu) ShowMenu() {
-	Menu.ShowStatus()
+func (m *LogFilterMenu) ShowMenu() {
+	m.ShowStatus()
 	var option string
-	for key := range Menu.filterRegister {
-		Menu.filterRec = append(Menu.filterRec, key)
+	for key := range m.filterRegister {
+		m.filterRec = append(m.filterRec, key)
 	}
-	sort.Slice(Menu.filterRec, func(i, j int) bool {
-		return Menu.filterRec[i] < Menu.filterRec[j]
+	sort.Slice(m.filterRec, func(i, j int) bool {
+		return m.filterRec[i] < m.filterRec[j]
 	})
 
-	for index, filter := range Menu.filterRec {
+	for index, filter := range m.filterRec {
 		fmt.Printf("[%d] %s\n", index+1, filter)
 	}
 
 	fmt.Println("[a] Select env")
 	fmt.Println("[b] Select namespace")
 	fmt.Println("[c] Select app")
-	fmt.Println("[d] Select log model")
+	fmt.Println("[d] Select command")
 	fmt.Println("[e] Exit")
 	fmt.Print("Please select log filter: ")
 	fmt.Scan(&option)
-	if Menu.isDigit(option) {
-		optionInt, _ := strconv.ParseInt(option, 10, 8)
-		Menu.SelectLogFilter(int(optionInt) - 1)
-	} else if option == "a" {
-		Menu.SelectEnv(-1)
-	} else if option == "b" {
-		Menu.SelectNameSpace(-1)
-	} else if option == "c" {
-		Menu.SelectApp(-1)
-	} else if option == "d" {
-		Menu.SelectLogModel("")
-	} else if option == "e" {
-		Menu.Close()
+	if m.isDigit(option) {
+		optionInt64, _ := strconv.ParseInt(option, 10, 8)
+		optionInt := int(optionInt64) - 1
+		if optionInt >= 0 && optionInt < len(m.filterRec) {
+			m.SelectLogFilter(optionInt)
+		} else {
+			m.filterRec = make([]string, 0)
+			fmt.Println("Paramter parse error.")
+		}
 	} else {
-		fmt.Println("Parameter parse error")
+		switch option {
+		case "a":
+			m.SelectEnv(-1)
+		case "b":
+			m.SelectNameSpace(-1)
+		case "c":
+			m.SelectApp(-1)
+		case "d":
+			m.SelectCommand("")
+		case "e":
+			m.Close()
+		default:
+			m.filterRec = make([]string, 0)
+			fmt.Println("Parameter parse error")
+		}
 	}
-
 }
 
-func (Menu *LogFilterMenu) SelectEnv(option int) {
-	CurrentMenu = NewEnvMenu(Menu.Status)
+func (m *LogFilterMenu) SelectEnv(option int) {
+	CurrentMenu = NewEnvMenu(m.Status)
 }
 
-func (Menu *LogFilterMenu) SelectNameSpace(option int) {
-	CurrentMenu = NewNamespaceMenu(Menu.Status)
+func (m *LogFilterMenu) SelectNameSpace(option int) {
+	CurrentMenu = NewNamespaceMenu(m.Status)
 }
 
-func (Menu *LogFilterMenu) SelectApp(option int) {
-	CurrentMenu = NewAppMenu(Menu.Status)
+func (m *LogFilterMenu) SelectApp(option int) {
+	CurrentMenu = NewAppMenu(m.Status)
 }
 
-func (Menu *LogFilterMenu) SelectLogModel(logModel string) {
-	CurrentMenu = NewLogModelMenu(Menu.Status)
+func (m *LogFilterMenu) SelectCommand(command string) {
+	CurrentMenu = NewLogModelMenu(m.Status)
 }
 
-func (Menu *LogFilterMenu) SelectLogFilter(option int) {
-	// Menu.Status.LogFilter = logFilter
-	key := Menu.filterRec[option]
-	Menu.Status.LogFilter = key
-	Menu.Status.LogFilterObj = Menu.filterRegister[key]
+func (m *LogFilterMenu) SelectLogFilter(option int) {
+	key := m.filterRec[option]
+	m.Status.LogFilter = key
+	m.Status.LogFilterObj = m.filterRegister[key]
 	keyword := ""
-
 	if strings.Contains(key, "Keyword") {
 		fmt.Print("Please input keyword: ")
 		fmt.Scan(&keyword)
 	}
-
-	Menu.PringLog(keyword)
-	CurrentMenu = NewLogFilterMenu(Menu.Status)
+	m.PringLog(keyword)
+	CurrentMenu = NewLogFilterMenu(m.Status)
 }
 
-func (Menu *LogFilterMenu) Close() {
+func (m *LogFilterMenu) Close() {
 	fmt.Println("Exiting...")
 	os.Exit(0)
 }
 
-func (Menu *LogFilterMenu) PringLog(extra ...string) {
-	podList := Menu.Status.Client.ListPodsForApp(Menu.Status.Namespace, Menu.Status.App)
+func (m *LogFilterMenu) PringLog(extra ...string) {
+	podList := m.Status.Client.ListPodsForApp(m.Status.Namespace, m.Status.App)
 
-	if Menu.Status.LogModel == "Print Log" {
-		Menu.Status.Client.PrintLogForPods(Menu.Status.Namespace, podList, Menu.Status.LogFilterObj, extra...)
-	} else if Menu.Status.LogModel == "Follow Log" {
-		Menu.Status.Client.FollowLogForPods(Menu.Status.Namespace, podList, Menu.Status.LogFilterObj, extra...)
+	if m.Status.Command == "Print Log" {
+		m.Status.Client.PrintLogForPods(m.Status.Namespace, podList, m.Status.LogFilterObj, extra...)
+	} else if m.Status.Command == "Follow Log" {
+		m.Status.Client.FollowLogForPods(m.Status.Namespace, podList, m.Status.LogFilterObj, extra...)
 	} else {
 		fmt.Println("Log model select error!")
 	}

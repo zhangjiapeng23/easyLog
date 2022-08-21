@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -29,60 +30,84 @@ func NewEnvMenu(menuStatus *MenuStatus) *EnvMenu {
 	return &EnvMenu{menuStatus, &MenuHelper{menuStatus}, make(map[string]string), make([]string, 0)}
 }
 
-func (Menu *EnvMenu) ShowMenu() {
-	Menu.ShowStatus()
+func (m *EnvMenu) ShowMenu() {
+	m.ShowStatus()
 	var option string
-	// fmt.Println("[1] pre")
-	// fmt.Println("[2] uat")
-	Menu.FilePathMap = searchK8SConifg()
+	m.FilePathMap = searchK8SConifg()
+
+	for key := range m.FilePathMap {
+		m.EnvRec = append(m.EnvRec, key)
+	}
+	sort.Slice(m.EnvRec, func(i, j int) bool {
+		if m.EnvRec[i] < m.EnvRec[j] {
+			return true
+		} else {
+			return false
+		}
+	})
 	index := 1
-	for key := range Menu.FilePathMap {
-		fmt.Printf("[%d] %s\n", index, key)
-		Menu.EnvRec = append(Menu.EnvRec, key)
+	for _, env := range m.EnvRec {
+		fmt.Printf("[%d] %s\n", index, env)
+		m.EnvRec = append(m.EnvRec, env)
 		index++
 	}
 	fmt.Println("[a] Exit")
 	fmt.Print("Please select env: ")
 	fmt.Scan(&option)
-	if Menu.isDigit(option) {
-		optionInt, _ := strconv.ParseInt(option, 10, 8)
-		Menu.SelectEnv(int(optionInt) - 1)
-	} else if option == "a" {
-		Menu.Close()
+	if m.isDigit(option) {
+		optionInt64, _ := strconv.ParseInt(option, 10, 8)
+		optionInt := int(optionInt64) - 1
+		if optionInt >= 0 && optionInt < len(m.EnvRec) {
+			m.SelectEnv(optionInt)
+		} else {
+			m.EnvRec = make([]string, 0)
+			fmt.Println("Paramter parse error.")
+		}
 	} else {
-		fmt.Println("Paramter parse error.")
+		switch option {
+		case "a":
+			m.Close()
+		default:
+			m.EnvRec = make([]string, 0)
+			fmt.Println("Paramter parse error.")
+		}
 	}
 }
 
-func (Menu *EnvMenu) SelectEnv(option int) {
-	Menu.Status.Env = Menu.EnvRec[option]
-	Menu.Status.Client = k8s.NewClient(Menu.FilePathMap[Menu.Status.Env])
-	Menu.Status.Namespace = ""
-	Menu.Status.App = ""
-	CurrentMenu = NewNamespaceMenu(Menu.Status)
+func (m *EnvMenu) SelectEnv(option int) {
+	m.Status.Env = m.EnvRec[option]
+	m.Status.Client = k8s.NewClient(m.FilePathMap[m.Status.Env])
+	// clear namespace, app, log model, log filter
+	m.Status.Namespace = ""
+	m.Status.App = ""
+	m.Status.Command = ""
+	m.Status.LogFilter = ""
+	CurrentMenu = NewNamespaceMenu(m.Status)
 }
 
-func (Menu *EnvMenu) SelectNameSpace(option int) {
+func (m *EnvMenu) SelectNameSpace(option int) {
 	fmt.Fprintf(os.Stderr, "please select env first")
 }
 
-func (Menu *EnvMenu) SelectApp(option int) {
+func (m *EnvMenu) SelectApp(option int) {
 	fmt.Fprintf(os.Stderr, "please select env first")
 }
 
-func (Menu *EnvMenu) SelectLogModel(logModel string) {
+func (m *EnvMenu) SelectCommand(command string) {
 	fmt.Fprintf(os.Stderr, "please select env first")
 }
 
-func (Menu *EnvMenu) SelectLogFilter(option int) {
+func (m *EnvMenu) SelectLogFilter(option int) {
 	fmt.Fprintf(os.Stderr, "please select env first")
 }
 
-func (Menu *EnvMenu) Close() {
+func (m *EnvMenu) Close() {
 	fmt.Println("Exiting...")
 	os.Exit(0)
 }
 
+// This function to find k8s config, strategy is first to find local kube homedir is whether exits
+// config. if find, will use this to show env menu. Otherwise, will use dir /k8s/conf default config.
 func searchK8SConifg() (filePath map[string]string) {
 	var kubeconfigDir string
 	filePath = make(map[string]string)
@@ -94,9 +119,6 @@ func searchK8SConifg() (filePath map[string]string) {
 			panic(fmt.Sprintf("load k8s config error: %v", err.Error()))
 		}
 		if !exits {
-			// get proj root dir
-			// projDir, _ := os.Getwd()
-			// kubeconfigDir = filepath.Join(projDir, "k8s", "conf")
 			file, _ := exec.LookPath(os.Args[0])
 			path, _ := filepath.Abs(file)
 			index := strings.LastIndex(path, string(os.PathSeparator))
@@ -109,7 +131,6 @@ func searchK8SConifg() (filePath map[string]string) {
 				panic(err.Error())
 			}
 			if len(filterFile(rd)) == 0 {
-				// projDir, _ := os.Getwd()
 				file, _ := exec.LookPath(os.Args[0])
 				path, _ := filepath.Abs(file)
 				index := strings.LastIndex(path, string(os.PathSeparator))
@@ -118,8 +139,6 @@ func searchK8SConifg() (filePath map[string]string) {
 			}
 		}
 	} else {
-		// projDir, _ := os.Getwd()
-		// kubeconfigDir = filepath.Join(projDir, "k8s", "conf")
 		file, _ := exec.LookPath(os.Args[0])
 		path, _ := filepath.Abs(file)
 		index := strings.LastIndex(path, string(os.PathSeparator))

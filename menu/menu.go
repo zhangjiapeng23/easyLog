@@ -23,7 +23,7 @@ type MenuStatus struct {
 	Env string
 	Namespace string
 	App string
-	LogModel string
+	Command string
 	LogFilter string
 	Client *k8s.Client
 	NamespaceObj *v1.Namespace
@@ -36,7 +36,7 @@ type Menu interface {
 	SelectEnv(option int)
 	SelectNameSpace(optioin int)
 	SelectApp(option int)
-	SelectLogModel(logModel string)
+	SelectCommand(command string)
 	SelectLogFilter(option int)
 	Close()
 }
@@ -45,26 +45,26 @@ type MenuHelper struct {
 	Status *MenuStatus
 }
 
-func (menu *MenuHelper) ShowStatus() {
+func (m *MenuHelper) ShowStatus() {
 	flag := false
-	if menu.Status.Env != "" {
-		fmt.Printf("Env: %s\t", menu.Status.Env)
+	if m.Status.Env != "" {
+		fmt.Printf("Env: %s\t", m.Status.Env)
 		flag = true
 	}
-	if menu.Status.Namespace != "" {
-		fmt.Printf("Namespace: %s\t", menu.Status.Namespace)
+	if m.Status.Namespace != "" {
+		fmt.Printf("Namespace: %s\t", m.Status.Namespace)
 		flag = true
 	}
-	if menu.Status.App != "" {
-		fmt.Printf("App: %s\t", menu.Status.App)
+	if m.Status.App != "" {
+		fmt.Printf("App: %s\t", m.Status.App)
 		flag = true
 	}
-	if menu.Status.LogModel != "" {
-		fmt.Printf("Log Model: %s\t", menu.Status.LogModel)
+	if m.Status.Command != "" {
+		fmt.Printf("Command: %s\t", m.Status.Command)
 		flag = true
 	}
-	if menu.Status.LogFilter != "" {
-		fmt.Printf("Filter: %s\t", menu.Status.LogFilter)
+	if m.Status.LogFilter != "" {
+		fmt.Printf("Filter: %s\t", m.Status.LogFilter)
 		flag = true
 	}
 	if flag {
@@ -73,7 +73,7 @@ func (menu *MenuHelper) ShowStatus() {
 	}
 }
 
-func (menu *MenuHelper) isDigit(s string) bool {
+func (m *MenuHelper) isDigit(s string) bool {
 	_, err := strconv.ParseInt(s, 10, 8)
 	return err == nil
 }
@@ -84,7 +84,7 @@ func init() {
 			Env:       "",
 			Namespace: "",
 			App:       "",
-			LogModel:  "",
+			Command:  "",
 			LogFilter: "",
 			Client: nil,
 			NamespaceObj: nil,
