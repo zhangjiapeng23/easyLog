@@ -85,9 +85,7 @@ func (m *CommandMenu) SelectCommand(command string) {
 	} else if command == "Exec pod" {
 		podList := m.Status.Client.ListPodsForApp(m.Status.Namespace, m.Status.App)
 		podName := podList.Items[0].ObjectMeta.Name
-
 		m.Status.Client.ExecPod(m.Status.Namespace, podName)
-
 	} else {
 		CurrentMenu = NewLogFilterMenu(m.Status)
 	}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"time"
 
 	"syscall"
 
@@ -242,19 +243,9 @@ func (c *Client) ExecPod(ns string, podName string) {
 		}, scheme.ParameterCodec)
 
 	exec, _ := remotecommand.NewSPDYExecutor(c.config, "POST", rep.URL())
-	fmt.Println(os.Stdin.Fd())
-	fmt.Println(term.IsTerminal(88))
-	fmt.Println(term.IsTerminal(1))
 
 	// if !term.IsTerminal(0) || !term.IsTerminal(1) {
 	// 	panic("stdin/stdout should be terminal")
-	// 	// fmt.Errorf("stdin/stdout should be terminal")
-	// 	// fmt.Println("stdin/stdout should be terminal")
-	// }
-
-	// oldState, err := term.MakeRaw(0)
-	// if err != nil {
-	// 	panic(err.Error())
 	// }
 
 	fd := int(os.Stdin.Fd())
@@ -264,6 +255,9 @@ func (c *Client) ExecPod(ns string, podName string) {
 	}
 
 	defer term.Restore(fd, oldState)
+
+	width, height, _ := term.GetSize(fd)
+	fmt.Println(width, height)
 
 	screen := struct {
 		io.Reader
@@ -276,7 +270,12 @@ func (c *Client) ExecPod(ns string, podName string) {
 		Stderr: screen,
 		Tty:    true,
 	}); err != nil {
-		fmt.Print(err)
+		fmt.Println(err.Error())
 	}
 
+	fmt.Print("\r输入回车继续...")
+	screen.Read(make([]byte, 0))
+	fmt.Print("\r")
+	time.Sleep(time.Second * 1)
+	fmt.Print("\r")
 }
