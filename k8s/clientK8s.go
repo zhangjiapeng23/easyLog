@@ -11,7 +11,7 @@ import (
 
 	"syscall"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -234,7 +234,7 @@ func (c *Client) ExecPod(ns string, podName string) {
 	rep := c.Clientset.CoreV1().RESTClient().Post().
 		Resource("pods").Name(podName).Namespace(ns).SubResource("exec").VersionedParams(
 		&corev1.PodExecOptions{
-			Command: []string{"bash", "-c", "/bin/sh"},
+			Command: []string{"sh", "-c", "/bin/sh"},
 			Stdin:   true,
 			Stdout:  true,
 			Stderr:  true,
@@ -242,25 +242,28 @@ func (c *Client) ExecPod(ns string, podName string) {
 		}, scheme.ParameterCodec)
 
 	exec, _ := remotecommand.NewSPDYExecutor(c.config, "POST", rep.URL())
+	fmt.Println(os.Stdin.Fd())
+	fmt.Println(term.IsTerminal(88))
+	fmt.Println(term.IsTerminal(1))
 
-	// if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
-	// 	// panic("stdin/stdout should be terminal")
+	// if !term.IsTerminal(0) || !term.IsTerminal(1) {
+	// 	panic("stdin/stdout should be terminal")
 	// 	// fmt.Errorf("stdin/stdout should be terminal")
-	// 	fmt.Println("stdin/stdout should be terminal")
+	// 	// fmt.Println("stdin/stdout should be terminal")
 	// }
 
-	oldState, err := terminal.MakeRaw(0)
-	if err != nil {
-		panic(err.Error())
-	}
+	// oldState, err := term.MakeRaw(0)
+	// if err != nil {
+	// 	panic(err.Error())
+	// }
 
 	fd := int(os.Stdin.Fd())
-	oldState, err = terminal.MakeRaw(fd)
+	oldState, err := term.MakeRaw(fd)
 	if err != nil {
 		fmt.Println(err.Error())
 	}
 
-	defer terminal.Restore(fd, oldState)
+	defer term.Restore(fd, oldState)
 
 	screen := struct {
 		io.Reader
