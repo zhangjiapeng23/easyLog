@@ -11,12 +11,16 @@ import (
 
 	"syscall"
 
+	"golang.org/x/crypto/ssh/terminal"
 	appsv1 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/remotecommand"
 )
 
 // single instance
@@ -27,11 +31,12 @@ var (
 type Client struct {
 	Clientset *kubernetes.Clientset
 	DataCache *DataCache
+	config    *rest.Config
 }
 
 // global data cache
 type DataCache struct {
-	Namespaces *v1.NamespaceList
+	Namespaces *corev1.NamespaceList
 	Apps       map[string]*appsv1.DeploymentList
 }
 
@@ -50,7 +55,7 @@ func NewClient(env string) *Client {
 			panic(err.Error())
 		}
 		// cache k8s env connect
-		clientInstance[env] = &Client{Clientset: clientset, DataCache: &DataCache{Apps: make(map[string]*appsv1.DeploymentList)}}
+		clientInstance[env] = &Client{Clientset: clientset, DataCache: &DataCache{Apps: make(map[string]*appsv1.DeploymentList)}, config: config}
 	}
 	return clientInstance[env]
 }
@@ -66,7 +71,7 @@ func PathExits(path string) (bool, error) {
 	return false, err
 }
 
-func (c *Client) ListNamespaces() *v1.NamespaceList {
+func (c *Client) ListNamespaces() *corev1.NamespaceList {
 	// check namespace whether exit cache
 	if c.DataCache.Namespaces == nil {
 		namespaceList, err := c.Clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
@@ -92,7 +97,7 @@ func (c *Client) ListAppsForNamespace(namespace string) *appsv1.DeploymentList {
 }
 
 // get pod info by namespace and deployment
-func (c *Client) ListPodsForApp(ns string, app string) *v1.PodList {
+func (c *Client) ListPodsForApp(ns string, app string) *corev1.PodList {
 	deployments := c.ListAppsForNamespace(ns)
 	var deployment appsv1.Deployment
 	for _, dp := range deployments.Items {
@@ -114,7 +119,7 @@ func (c *Client) ListPodsForApp(ns string, app string) *v1.PodList {
 }
 
 // follo log output
-func (c *Client) FollowLogForPods(ns string, podList *v1.PodList,
+func (c *Client) FollowLogForPods(ns string, podList *corev1.PodList,
 	filter func(log chan []byte, filterLog chan *filters.Log, extra ...string), extra ...string) {
 	log := make(chan []byte)
 	filterLog := make(chan *filters.Log)
@@ -138,7 +143,7 @@ func (c *Client) FollowLogForPods(ns string, podList *v1.PodList,
 }
 
 // Only print log to current time, doesn't keep output
-func (c *Client) PrintLogForPods(ns string, PodList *v1.PodList,
+func (c *Client) PrintLogForPods(ns string, PodList *corev1.PodList,
 	filter func(log chan []byte, filterLog chan *filters.Log, extra ...string), extra ...string) {
 	log := make(chan []byte)
 	filterLog := make(chan *filters.Log)
@@ -163,7 +168,7 @@ func (c *Client) PrintLogForPods(ns string, PodList *v1.PodList,
 
 func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, podName string) {
 	var sinceTime int64 = 60 * 60 * 2
-	opts := &v1.PodLogOptions{
+	opts := &corev1.PodLogOptions{
 		Follow:       true,
 		SinceSeconds: &sinceTime,
 	}
@@ -190,7 +195,7 @@ func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, pod
 
 func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podName string) {
 	var sinceTime int64 = 60 * 60 * 2
-	opts := &v1.PodLogOptions{
+	opts := &corev1.PodLogOptions{
 		Follow:       false,
 		SinceSeconds: &sinceTime,
 	}
@@ -223,4 +228,52 @@ func SetupCloseHandler(quit chan int) {
 		<-c
 		quit <- 0
 	}()
+}
+
+func (c *Client) ExecPod(ns string, podName string) {
+	rep := c.Clientset.CoreV1().RESTClient().Post().
+		Resource("pods").Name(podName).Namespace(ns).SubResource("exec").VersionedParams(
+		&corev1.PodExecOptions{
+			Command: []string{"bash", "-c", "/bin/sh"},
+			Stdin:   true,
+			Stdout:  true,
+			Stderr:  true,
+			TTY:     true,
+		}, scheme.ParameterCodec)
+
+	exec, _ := remotecommand.NewSPDYExecutor(c.config, "POST", rep.URL())
+
+	// if !terminal.IsTerminal(0) || !terminal.IsTerminal(1) {
+	// 	// panic("stdin/stdout should be terminal")
+	// 	// fmt.Errorf("stdin/stdout should be terminal")
+	// 	fmt.Println("stdin/stdout should be terminal")
+	// }
+
+	oldState, err := terminal.MakeRaw(0)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fd := int(os.Stdin.Fd())
+	oldState, err = terminal.MakeRaw(fd)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	defer terminal.Restore(fd, oldState)
+
+	screen := struct {
+		io.Reader
+		io.Writer
+	}{os.Stdin, os.Stdout}
+
+	if err = exec.Stream(remotecommand.StreamOptions{
+		Stdin:  screen,
+		Stdout: screen,
+		Stderr: screen,
+		Tty:    true,
+	}); err != nil {
+		fmt.Print(err)
+	}
+
 }
