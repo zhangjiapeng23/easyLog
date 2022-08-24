@@ -168,7 +168,7 @@ func (c *Client) PrintLogForPods(ns string, PodList *corev1.PodList,
 }
 
 func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, podName string) {
-	var sinceTime int64 = 60 * 60 * 2
+	var sinceTime int64 = 2 * 60 * 60
 	opts := &corev1.PodLogOptions{
 		Follow:       true,
 		SinceSeconds: &sinceTime,
@@ -195,7 +195,7 @@ func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, pod
 }
 
 func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podName string) {
-	var sinceTime int64 = 60 * 60 * 2
+	var sinceTime int64 = 2 * 60 * 60
 	opts := &corev1.PodLogOptions{
 		Follow:       false,
 		SinceSeconds: &sinceTime,
@@ -251,13 +251,13 @@ func (c *Client) ExecPod(ns string, podName string) {
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
-		fmt.Println(err.Error())
+		panic(err.Error())
 	}
 
 	defer term.Restore(fd, oldState)
 
-	width, height, _ := term.GetSize(fd)
-	fmt.Println(width, height)
+	// width, height, _ := term.GetSize(fd)
+	// fmt.Println(width, height)
 
 	screen := struct {
 		io.Reader
@@ -270,7 +270,7 @@ func (c *Client) ExecPod(ns string, podName string) {
 		Stderr: screen,
 		Tty:    true,
 	}); err != nil {
-		fmt.Println(err.Error())
+		panic(err.Error())
 	}
 
 	fmt.Print("\r输入回车继续...")
