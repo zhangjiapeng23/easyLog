@@ -50,14 +50,14 @@ func (m *AppMenu) ShowMenu() {
 		fmt.Println("No matching apps were found")
 	}
 
-	fmt.Println("[a] Search")
+	fmt.Println("[a] Search app")
 	fmt.Println("[b] Select env")
 	fmt.Println("[c] Select namespace")
 	fmt.Println("[d] Exit")
 	fmt.Print("Please select app: ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
-		optionInt64, _ := strconv.ParseInt(option, 10, 8)
+		optionInt64, _ := strconv.ParseInt(option, 10, 32)
 		optionInt := int(optionInt64) - 1
 		if optionInt >= 0 && optionInt < len(m.Status.Client.ListAppsForNamespace(m.Status.Namespace).Items) {
 			m.SelectApp(optionInt)
@@ -97,7 +97,8 @@ func (m *AppMenu) SelectApp(option int) {
 	// clear log model, log filter
 	m.Status.Command = ""
 	m.Status.LogFilter = ""
-	CurrentMenu = NewLogModelMenu(m.Status)
+	m.Status.PodName = ""
+	CurrentMenu = NewCommandMenu(m.Status)
 }
 
 func (m *AppMenu) SelectCommand(command string) {

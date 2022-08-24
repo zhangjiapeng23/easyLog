@@ -20,14 +20,15 @@ var (
 )
 
 type MenuStatus struct {
-	Env string
-	Namespace string
-	App string
-	Command string
-	LogFilter string
-	Client *k8s.Client
+	Env          string
+	Namespace    string
+	App          string
+	Command      string
+	LogFilter    string
+	PodName      string
+	Client       *k8s.Client
 	NamespaceObj *v1.Namespace
-	AppObj *appsv1.Deployment
+	AppObj       *appsv1.Deployment
 	LogFilterObj func(log chan []byte, filterLog chan *filters.Log, extra ...string)
 }
 
@@ -60,11 +61,15 @@ func (m *MenuHelper) ShowStatus() {
 		flag = true
 	}
 	if m.Status.Command != "" {
-		fmt.Printf("Command: %s\t", m.Status.Command)
+		fmt.Printf("Cmd: %s\t", m.Status.Command)
 		flag = true
 	}
 	if m.Status.LogFilter != "" {
 		fmt.Printf("Filter: %s\t", m.Status.LogFilter)
+		flag = true
+	}
+	if m.Status.PodName != "" {
+		fmt.Printf("Pod: %s\t", m.Status.PodName)
 		flag = true
 	}
 	if flag {
@@ -74,21 +79,22 @@ func (m *MenuHelper) ShowStatus() {
 }
 
 func (m *MenuHelper) isDigit(s string) bool {
-	_, err := strconv.ParseInt(s, 10, 8)
+	_, err := strconv.ParseInt(s, 10, 32)
 	return err == nil
 }
 
 func init() {
 	CurrentMenu = NewEnvMenu(
 		&MenuStatus{
-			Env:       "",
-			Namespace: "",
-			App:       "",
-			Command:  "",
-			LogFilter: "",
-			Client: nil,
+			Env:          "",
+			Namespace:    "",
+			App:          "",
+			Command:      "",
+			LogFilter:    "",
+			PodName:      "",
+			Client:       nil,
 			NamespaceObj: nil,
-			AppObj: nil,
+			AppObj:       nil,
 			LogFilterObj: nil,
 		},
 	)

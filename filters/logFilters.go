@@ -19,9 +19,13 @@ func InfoFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 	levelFilter("INFO", log, filterLog, extra...)
 }
 
+func DebugFilter(log chan []byte, filterLog chan *Log, extra ...string) {
+	levelFilter("DEBUG", log, filterLog, extra...)
+}
+
 func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 	lineStartPattern, _ := regexp.Compile("[0-9]+-[0-9]+-[0-9]+.*")
-	levelLogPattern, _ := regexp.Compile(".*(INFO|ERROR).*")
+	levelLogPattern, _ := regexp.Compile(".*(INFO|ERROR|DEBUG|WARN).*")
 	dateTimePattern, _ := regexp.Compile("[0-9]+-[0-9]+-[0-9]+ [0-9]+:[0-9]+:[0-9]+")
 	titlePattern, _ := regexp.Compile(`.*?\[.*?\](.*)`)
 	keyword := ""

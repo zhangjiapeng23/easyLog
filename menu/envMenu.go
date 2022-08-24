@@ -55,7 +55,7 @@ func (m *EnvMenu) ShowMenu() {
 	fmt.Print("Please select env: ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
-		optionInt64, _ := strconv.ParseInt(option, 10, 8)
+		optionInt64, _ := strconv.ParseInt(option, 10, 32)
 		optionInt := int(optionInt64) - 1
 		if optionInt >= 0 && optionInt < len(m.EnvRec) {
 			m.SelectEnv(optionInt)
@@ -82,6 +82,7 @@ func (m *EnvMenu) SelectEnv(option int) {
 	m.Status.App = ""
 	m.Status.Command = ""
 	m.Status.LogFilter = ""
+	m.Status.PodName = ""
 	CurrentMenu = NewNamespaceMenu(m.Status)
 }
 

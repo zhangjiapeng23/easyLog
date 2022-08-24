@@ -50,13 +50,13 @@ func (m *NamespaceMenu) ShowMenu() {
 		fmt.Println("No matching namespace were found")
 	}
 
-	fmt.Println("[a] Search")
-	fmt.Println("[b] Select Env")
+	fmt.Println("[a] Search namespace")
+	fmt.Println("[b] Select env")
 	fmt.Println("[c] Exit")
 	fmt.Print("Please select namespace: ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
-		optionInt64, _ := strconv.ParseInt(option, 10, 8)
+		optionInt64, _ := strconv.ParseInt(option, 10, 32)
 		optionInt := int(optionInt64) - 1
 		if optionInt >= 0 && optionInt < len(m.Status.Client.ListNamespaces().Items) {
 			m.SelectNameSpace(optionInt)
@@ -91,6 +91,7 @@ func (m *NamespaceMenu) SelectNameSpace(option int) {
 	m.Status.App = ""
 	m.Status.Command = ""
 	m.Status.LogFilter = ""
+	m.Status.PodName = ""
 	CurrentMenu = NewAppMenu(m.Status)
 }
 

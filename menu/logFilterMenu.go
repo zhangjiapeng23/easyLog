@@ -26,6 +26,7 @@ func NewLogFilterMenu(menuStatus *MenuStatus) *LogFilterMenu {
 		"Error Filter":   filters.ErrorFilter,
 		"Warn Filter":    filters.WarnFilter,
 		"Info Filter":    filters.InfoFilter,
+		"Debug Filter":   filters.DebugFilter,
 		"Keyword Filter": filters.KeywordFilter,
 		"All Filter":     filters.AllFilter,
 	}, make([]string, 0)}
@@ -50,10 +51,10 @@ func (m *LogFilterMenu) ShowMenu() {
 	fmt.Println("[c] Select app")
 	fmt.Println("[d] Select command")
 	fmt.Println("[e] Exit")
-	fmt.Print("Please select log filter: ")
+	fmt.Print("Please select log filter (Ctrl+C quit): ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
-		optionInt64, _ := strconv.ParseInt(option, 10, 8)
+		optionInt64, _ := strconv.ParseInt(option, 10, 32)
 		optionInt := int(optionInt64) - 1
 		if optionInt >= 0 && optionInt < len(m.filterRec) {
 			m.SelectLogFilter(optionInt)
@@ -93,7 +94,7 @@ func (m *LogFilterMenu) SelectApp(option int) {
 }
 
 func (m *LogFilterMenu) SelectCommand(command string) {
-	CurrentMenu = NewLogModelMenu(m.Status)
+	CurrentMenu = NewCommandMenu(m.Status)
 }
 
 func (m *LogFilterMenu) SelectLogFilter(option int) {

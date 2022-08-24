@@ -17,7 +17,7 @@ type CommandMenu struct {
 	*MenuHelper
 }
 
-func NewLogModelMenu(menuStatus *MenuStatus) *CommandMenu {
+func NewCommandMenu(menuStatus *MenuStatus) *CommandMenu {
 	return &CommandMenu{menuStatus, &MenuHelper{menuStatus}}
 }
 
@@ -27,7 +27,7 @@ func (m *CommandMenu) ShowMenu() {
 	fmt.Println("[1] Print log")
 	fmt.Println("[2] Follow log")
 	fmt.Println("[3] Fetch pod info")
-	fmt.Println("[4] Exec pod")
+	fmt.Println("[4] Execute shell")
 	fmt.Println("[a] Select env")
 	fmt.Println("[b] Select namespace")
 	fmt.Println("[c] Select app")
@@ -43,7 +43,7 @@ func (m *CommandMenu) ShowMenu() {
 		case "3":
 			m.SelectCommand("Fetch Pod Info")
 		case "4":
-			m.SelectCommand("Exec pod")
+			m.SelectCommand("Execute Shell")
 		default:
 			fmt.Println("Paramter parse error")
 		}
@@ -77,15 +77,14 @@ func (m *CommandMenu) SelectApp(option int) {
 
 func (m *CommandMenu) SelectCommand(command string) {
 	m.Status.Command = command
-	// clear log filter
+	// clear log filter and pod name
 	m.Status.LogFilter = ""
+	m.Status.PodName = ""
 	if command == "Fetch Pod Info" {
 		m.FetchPodsInfo()
-		CurrentMenu = NewLogModelMenu(m.Status)
-	} else if command == "Exec pod" {
-		podList := m.Status.Client.ListPodsForApp(m.Status.Namespace, m.Status.App)
-		podName := podList.Items[0].ObjectMeta.Name
-		m.Status.Client.ExecPod(m.Status.Namespace, podName)
+		CurrentMenu = NewCommandMenu(m.Status)
+	} else if command == "Execute Shell" {
+		CurrentMenu = NewPodExecMenu(m.Status)
 	} else {
 		CurrentMenu = NewLogFilterMenu(m.Status)
 	}
