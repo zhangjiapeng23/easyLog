@@ -129,14 +129,18 @@ func (c *Client) FollowLogForPods(ns string, podList *corev1.PodList,
 		go c.followLogForPods(log, quit, ns, pod.Name)
 	}
 	go filter(log, filterLog, extra...)
+	// listent ctrl+c quit
 	SetupCloseHandler(quit)
 	for {
 		select {
+		// quit signal, exit loop
 		case signal := <-quit:
 			if signal == 0 {
+				quit <- signal
 				fmt.Println("Closing log output...")
 			}
 			return
+		// from filter channel get new log
 		case log := <-filterLog:
 			log.String()
 		}
@@ -158,11 +162,13 @@ func (c *Client) PrintLogForPods(ns string, PodList *corev1.PodList,
 		select {
 		case signal := <-quit:
 			if signal == 0 {
+				quit <- signal
 				fmt.Println("Closing log output...")
 			}
 			return
 		case log := <-filterLog:
 			log.String()
+
 		}
 	}
 }
@@ -176,21 +182,25 @@ func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, pod
 	resp := c.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
 	readCloser, err := resp.Stream(context.TODO())
 	if err != nil {
-		// panic(err.Error())
-		fmt.Fprintln(os.Stdout, err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 		return
 	}
 	defer readCloser.Close()
 	r := bufio.NewReader(readCloser)
 	for {
-		bytes, err := r.ReadBytes('\n')
-		if err != nil {
-			// panic(err.Error())
-			fmt.Fprintln(os.Stderr, err.Error())
-			quit <- 1
+		select {
+		case signal := <-quit:
+			quit <- signal
 			return
+		default:
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err.Error())
+				quit <- 1
+				return
+			}
+			log <- bytes
 		}
-		log <- bytes
 	}
 }
 
@@ -204,24 +214,30 @@ func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podNa
 	resp := c.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
 	readCloser, err := resp.Stream(context.TODO())
 	if err != nil {
-		panic(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 	}
 	defer readCloser.Close()
 	r := bufio.NewReader(readCloser)
 	for {
-		bytes, err := r.ReadBytes('\n')
-		if err != nil {
-			if err != io.EOF {
-				fmt.Fprintln(os.Stderr, err.Error())
-				quit <- 1
-			}
+		select {
+		case signal := <-quit:
+			quit <- signal
 			return
+		default:
+			bytes, err := r.ReadBytes('\n')
+			if err != nil {
+				if err != io.EOF {
+					fmt.Fprintln(os.Stderr, err.Error())
+					quit <- 1
+				}
+				return
+			}
+			log <- bytes
 		}
-		log <- bytes
 	}
-
 }
 
+// listen Ctrl+C to termination log output
 func SetupCloseHandler(quit chan int) {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
@@ -232,6 +248,7 @@ func SetupCloseHandler(quit chan int) {
 }
 
 func (c *Client) ExecPod(ns string, podName string) {
+	// enter pod defualt container shell by exec 'sh -c /bin/sh'
 	rep := c.Clientset.CoreV1().RESTClient().Post().
 		Resource("pods").Name(podName).Namespace(ns).SubResource("exec").VersionedParams(
 		&corev1.PodExecOptions{
@@ -242,29 +259,24 @@ func (c *Client) ExecPod(ns string, podName string) {
 			TTY:     true,
 		}, scheme.ParameterCodec)
 
-	exec, _ := remotecommand.NewSPDYExecutor(c.config, "POST", rep.URL())
-
-	// if !term.IsTerminal(0) || !term.IsTerminal(1) {
-	// 	panic("stdin/stdout should be terminal")
-	// }
+	exec, err := remotecommand.NewSPDYExecutor(c.config, "POST", rep.URL())
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+	}
 
 	fd := int(os.Stdin.Fd())
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
-		panic(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 	}
-
 	defer term.Restore(fd, oldState)
-
-	// width, height, _ := term.GetSize(fd)
-	// fmt.Println(width, height)
 
 	screen := struct {
 		io.Reader
 		io.Writer
 	}{os.Stdin, os.Stdout}
 
-	if err = exec.Stream(remotecommand.StreamOptions{
+	if err := exec.Stream(remotecommand.StreamOptions{
 		Stdin:  screen,
 		Stdout: screen,
 		Stderr: screen,
