@@ -108,10 +108,25 @@ func (m *CommandMenu) FetchPodsInfo() {
 }
 
 func printPodInfo(pod v1.Pod) {
-	fmt.Printf("Pod Name: %s\n", pod.ObjectMeta.Name)
-	fmt.Printf("Pod IP: %s\n", pod.Status.PodIP)
-	fmt.Printf("Pod Port: %s\n", pod.Annotations["prometheus.io/port"])
-	fmt.Printf("Status: %v\n", pod.Status.Conditions[0].Status)
-	fmt.Printf("Ready: %v\n", pod.Status.ContainerStatuses[0].Ready)
-	fmt.Printf("Restart Count: %d\n", pod.Status.ContainerStatuses[0].RestartCount)
+	name := pod.ObjectMeta.Name
+	ip := pod.Status.PodIP
+	port := pod.Annotations["prometheus.io/port"]
+	status := ""
+	ready := false
+	var restart int32 = 0
+	if len(pod.Status.Conditions) > 0 {
+		status = string(pod.Status.Conditions[0].Status)
+	}
+	if len(pod.Status.ContainerStatuses) > 0 {
+		ready = pod.Status.ContainerStatuses[0].Ready
+	}
+	if len(pod.Status.ContainerStatuses) > 0 {
+		restart = pod.Status.ContainerStatuses[0].RestartCount
+	}
+	fmt.Printf("Pod Name: %s\n", name)
+	fmt.Printf("Pod IP: %s\n", ip)
+	fmt.Printf("Pod Port: %s\n", port)
+	fmt.Printf("Status: %v\n", status)
+	fmt.Printf("Ready: %v\n", ready)
+	fmt.Printf("Restart Count: %d\n", restart)
 }
