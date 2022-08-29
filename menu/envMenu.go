@@ -45,11 +45,9 @@ func (m *EnvMenu) ShowMenu() {
 			return false
 		}
 	})
-	index := 1
-	for _, env := range m.EnvRec {
-		fmt.Printf("[%d] %s\n", index, env)
-		m.EnvRec = append(m.EnvRec, env)
-		index++
+
+	for i := 0; i < len(m.EnvRec); i++ {
+		fmt.Printf("[%d] %s\n", i+1, m.EnvRec[i])
 	}
 	fmt.Println("[a] Exit")
 	fmt.Print("Please select env: ")
