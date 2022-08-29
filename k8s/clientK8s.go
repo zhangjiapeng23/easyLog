@@ -282,7 +282,7 @@ func (c *Client) ExecPod(ns string, podName string) {
 		Stderr: screen,
 		Tty:    true,
 	}); err != nil {
-		panic(err.Error())
+		fmt.Fprintln(os.Stderr, err.Error())
 	}
 
 	fmt.Print("\r输入回车继续...")
