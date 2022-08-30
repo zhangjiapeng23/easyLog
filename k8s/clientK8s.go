@@ -30,8 +30,8 @@ var (
 )
 
 type Client struct {
-	Clientset *kubernetes.Clientset
-	DataCache *DataCache
+	clientset *kubernetes.Clientset
+	dataCache *DataCache
 	config    *rest.Config
 }
 
@@ -56,7 +56,7 @@ func NewClient(env string) *Client {
 			panic(err.Error())
 		}
 		// cache k8s env connect
-		clientInstance[env] = &Client{Clientset: clientset, DataCache: &DataCache{Apps: make(map[string]*appsv1.DeploymentList)}, config: config}
+		clientInstance[env] = &Client{clientset: clientset, dataCache: &DataCache{Apps: make(map[string]*appsv1.DeploymentList)}, config: config}
 	}
 	return clientInstance[env]
 }
@@ -74,27 +74,27 @@ func PathExits(path string) (bool, error) {
 
 func (c *Client) ListNamespaces() *corev1.NamespaceList {
 	// check namespace whether exit cache
-	if c.DataCache.Namespaces == nil {
-		namespaceList, err := c.Clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+	if c.dataCache.Namespaces == nil {
+		namespaceList, err := c.clientset.CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
 			panic(err.Error())
 		}
 
-		c.DataCache.Namespaces = namespaceList
+		c.dataCache.Namespaces = namespaceList
 	}
-	return c.DataCache.Namespaces
+	return c.dataCache.Namespaces
 }
 
 // get all deployments info under a namespace
 func (c *Client) ListAppsForNamespace(namespace string) *appsv1.DeploymentList {
-	if _, ok := c.DataCache.Apps[namespace]; !ok {
-		deployments, err := c.Clientset.AppsV1().Deployments(namespace).List(context.Background(), metav1.ListOptions{})
+	if _, ok := c.dataCache.Apps[namespace]; !ok {
+		deployments, err := c.clientset.AppsV1().Deployments(namespace).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			panic(err.Error())
 		}
-		c.DataCache.Apps[namespace] = deployments
+		c.dataCache.Apps[namespace] = deployments
 	}
-	return c.DataCache.Apps[namespace]
+	return c.dataCache.Apps[namespace]
 }
 
 // get pod info by namespace and deployment
@@ -104,6 +104,7 @@ func (c *Client) ListPodsForApp(ns string, app string) *corev1.PodList {
 	for _, dp := range deployments.Items {
 		if app == dp.Name {
 			deployment = dp
+			break
 		}
 	}
 
@@ -111,7 +112,7 @@ func (c *Client) ListPodsForApp(ns string, app string) *corev1.PodList {
 		LabelSelector: labels.SelectorFromSet(deployment.Spec.Selector.MatchLabels).String(),
 	}
 
-	pods, err := c.Clientset.CoreV1().Pods(ns).List(context.Background(), listOpt)
+	pods, err := c.clientset.CoreV1().Pods(ns).List(context.Background(), listOpt)
 	if err != nil {
 		panic(err.Error())
 	}
@@ -183,7 +184,7 @@ func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, pod
 		Follow:       true,
 		SinceSeconds: &sinceTime,
 	}
-	resp := c.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
+	resp := c.clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
 	readCloser, err := resp.Stream(context.TODO())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -215,7 +216,7 @@ func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podNa
 		SinceSeconds: &sinceTime,
 	}
 
-	resp := c.Clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
+	resp := c.clientset.CoreV1().Pods(ns).GetLogs(podName, opts)
 	readCloser, err := resp.Stream(context.TODO())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err.Error())
@@ -253,7 +254,7 @@ func SetupCloseHandler(quit chan int) {
 
 func (c *Client) ExecPod(ns string, podName string) {
 	// enter pod defualt container shell by exec 'sh -c /bin/sh'
-	rep := c.Clientset.CoreV1().RESTClient().Post().
+	rep := c.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").Name(podName).Namespace(ns).SubResource("exec").VersionedParams(
 		&corev1.PodExecOptions{
 			Command: []string{"sh", "-c", "/bin/sh"},
