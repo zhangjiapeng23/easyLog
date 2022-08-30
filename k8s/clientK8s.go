@@ -138,6 +138,8 @@ func (c *Client) FollowLogForPods(ns string, podList *corev1.PodList,
 			if signal == 0 {
 				quit <- signal
 				fmt.Println("Closing log output...")
+			} else {
+				fmt.Println("Connection exception, abort output...")
 			}
 			return
 		// from filter channel get new log
@@ -164,6 +166,8 @@ func (c *Client) PrintLogForPods(ns string, PodList *corev1.PodList,
 			if signal == 0 {
 				quit <- signal
 				fmt.Println("Closing log output...")
+			} else {
+				fmt.Println("Connection exception, abort output...")
 			}
 			return
 		case log := <-filterLog:
@@ -195,7 +199,7 @@ func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, pod
 		default:
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
-				fmt.Fprintln(os.Stderr, err.Error())
+				// fmt.Fprintln(os.Stderr, err.Error())
 				quit <- 1
 				return
 			}
@@ -227,7 +231,7 @@ func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podNa
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
 				if err != io.EOF {
-					fmt.Fprintln(os.Stderr, err.Error())
+					// fmt.Fprintln(os.Stderr, err.Error())
 					quit <- 1
 				}
 				return
