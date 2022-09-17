@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+var Done chan struct{}
+
 func ErrorFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 	levelFilter("ERROR", log, filterLog, extra...)
 }
@@ -36,8 +38,11 @@ func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 	keywordPattern, _ := regexp.Compile(kwString)
 	var logEntity *Log
 	for {
-		logMsg, ok := <-log
-		if ok {
+		select {
+		case <-Done:
+			return
+		case logMsg := <-log:
+			// 定位每条日志的开头
 			if lineStartPattern.Match(logMsg) && levelLogPattern.Match(logMsg) {
 				level := levelLogPattern.FindSubmatch(logMsg)[1]
 				dateTimeStr := dateTimePattern.FindSubmatch(logMsg)[0]
@@ -51,6 +56,7 @@ func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 				logEntity = NewLog(string(dateTimeStr), string(level), title)
 				if keywordPattern.Match(logMsg) {
 					logEntity.IsMatch = true
+					logEntity.Keyword = keyword
 					go func(log *Log) {
 						time.AfterFunc(1*time.Second, func() {
 							filterLog <- log
@@ -62,6 +68,7 @@ func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 				// if log detial match keyword and log is not ready to print
 				if keywordPattern.Match(logMsg) && !logEntity.IsMatch {
 					logEntity.IsMatch = true
+					logEntity.Keyword = keyword
 					go func(log *Log) {
 						time.AfterFunc(1*time.Second, func() {
 							filterLog <- log
@@ -69,19 +76,17 @@ func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 					}(logEntity)
 				}
 			}
-		} else {
-			break
 		}
 	}
 }
 
 func AllFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 	for {
-		logMsg, ok := <-log
-		if ok {
+		select {
+		case <-Done:
+			return
+		case logMsg := <-log:
 			filterLog <- NewOriginLog(logMsg)
-		} else {
-			break
 		}
 	}
 }
@@ -94,8 +99,10 @@ func levelFilter(level string, log chan []byte, filterLog chan *Log, extra ...st
 	titlePattern, _ := regexp.Compile(`.*?\[.*?\](.*)`)
 	var logEntity *Log
 	for {
-		logMsg, ok := <-log
-		if ok {
+		select {
+		case <-Done:
+			return
+		case logMsg := <-log:
 			if lineStartPattern.Match(logMsg) && levelLogPattern.Match(logMsg) {
 				level := levelLogPattern.FindSubmatch(logMsg)[1]
 				dateTimeStr := dateTimePattern.FindSubmatch(logMsg)[0]
@@ -115,9 +122,6 @@ func levelFilter(level string, log chan []byte, filterLog chan *Log, extra ...st
 			} else if !lineStartPattern.Match(logMsg) && logEntity != nil {
 				logEntity.AddLogDetail(logMsg)
 			}
-		} else {
-			break
 		}
-
 	}
 }

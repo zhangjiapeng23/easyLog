@@ -31,7 +31,7 @@ func (m *NamespaceMenu) ShowMenu() {
 		if m.namespaceSearch != "" {
 			if strings.Contains(namespace.Name, m.namespaceSearch) {
 				searchMatch = true
-				fmt.Printf("[%02d] %-40s\n", index+1, namespace.Name)
+				fmt.Printf("[%02d] %-40s\n", index+1, m.colorKeyWord(namespace.Name, m.namespaceSearch))
 			}
 		} else {
 			searchMatch = true
@@ -47,13 +47,13 @@ func (m *NamespaceMenu) ShowMenu() {
 		}
 	}
 	if !searchMatch {
-		fmt.Println("No matching namespace were found")
+		printRed.Println("No matching namespace were found")
 	}
 
-	fmt.Println("[a] Search namespace")
-	fmt.Println("[b] Select env")
-	fmt.Println("[c] Exit")
-	fmt.Print("Please select namespace: ")
+	printBulue.Println("[a] Search namespace")
+	printBulue.Println("[b] Select env")
+	printBulue.Println("[c] Exit")
+	printGreen.Print("Please select namespace: ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
 		optionInt64, _ := strconv.ParseInt(option, 10, 32)
@@ -61,12 +61,12 @@ func (m *NamespaceMenu) ShowMenu() {
 		if optionInt >= 0 && optionInt < len(m.Status.Client.ListNamespaces().Items) {
 			m.SelectNameSpace(optionInt)
 		} else {
-			fmt.Println("Paramter parse error.")
+			printRed.Println("Paramter parse error.")
 		}
 	} else {
 		switch option {
 		case "a":
-			fmt.Print("Please input namespace: ")
+			printGreen.Print("Please input namespace: ")
 			fmt.Scan(&m.namespaceSearch)
 			m.ShowMenu()
 		case "b":
@@ -74,7 +74,7 @@ func (m *NamespaceMenu) ShowMenu() {
 		case "c":
 			m.Close()
 		default:
-			fmt.Println("Paramter parse error")
+			printRed.Println("Paramter parse error")
 		}
 	}
 }
@@ -108,6 +108,6 @@ func (m *NamespaceMenu) SelectLogFilter(option int) {
 }
 
 func (m *NamespaceMenu) Close() {
-	fmt.Println("Exiting...")
+	printCyan.Println("Exiting...")
 	os.Exit(0)
 }

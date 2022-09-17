@@ -20,7 +20,7 @@ func (m *PodExecMenu) ShowMenu() {
 	podName := ""
 	podList := m.Status.Client.ListPodsForApp(m.Status.Namespace, m.Status.App)
 	if len(podList.Items) <= 0 {
-		fmt.Println("The number of pods is 0")
+		printRed.Println("The number of pods is 0")
 		CurrentMenu = NewCommandMenu(m.Status)
 	} else {
 		option := ""
@@ -28,12 +28,12 @@ func (m *PodExecMenu) ShowMenu() {
 
 			fmt.Printf("[%d] %s\n", index+1, pod.Name)
 		}
-		fmt.Println("[a] Select env")
-		fmt.Println("[b] Select namespace")
-		fmt.Println("[c] Select app")
-		fmt.Println("[d] Select command")
-		fmt.Println("[e] Exit")
-		fmt.Print("Please select pod (input 'exit' quit container): ")
+		printBulue.Println("[a] Select env")
+		printBulue.Println("[b] Select namespace")
+		printBulue.Println("[c] Select app")
+		printBulue.Println("[d] Select command")
+		printBulue.Println("[e] Exit")
+		printGreen.Print("Please select pod (input 'exit' quit container): ")
 		fmt.Scan(&option)
 		if m.isDigit(option) {
 			optionInt64, _ := strconv.ParseInt(option, 10, 32)
@@ -42,7 +42,7 @@ func (m *PodExecMenu) ShowMenu() {
 				podName = podList.Items[optionInt].Name
 				m.SelectPod(podName)
 			} else {
-				fmt.Println("Paramter parse error.")
+				printRed.Println("Paramter parse error.")
 			}
 		} else {
 			switch option {
@@ -57,7 +57,7 @@ func (m *PodExecMenu) ShowMenu() {
 			case "e":
 				m.Close()
 			default:
-				fmt.Println("Paramter parse error")
+				printRed.Println("Paramter parse error")
 			}
 		}
 	}
@@ -84,7 +84,7 @@ func (m *PodExecMenu) SelectLogFilter(option int) {
 }
 
 func (m *PodExecMenu) Close() {
-	fmt.Println("Exiting...")
+	printCyan.Println("Exiting...")
 	os.Exit(0)
 }
 

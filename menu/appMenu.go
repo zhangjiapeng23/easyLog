@@ -31,7 +31,7 @@ func (m *AppMenu) ShowMenu() {
 		if m.appSearch != "" {
 			if strings.Contains(app.Name, m.appSearch) {
 				searchMatch = true
-				fmt.Printf("[%02d] %-40s\n", index+1, app.Name)
+				fmt.Printf("[%02d] %-40s\n", index+1, m.colorKeyWord(app.Name, m.appSearch))
 			}
 		} else {
 			searchMatch = true
@@ -47,14 +47,14 @@ func (m *AppMenu) ShowMenu() {
 		}
 	}
 	if !searchMatch {
-		fmt.Println("No matching apps were found")
+		printRed.Println("No matching apps were found")
 	}
 
-	fmt.Println("[a] Search app")
-	fmt.Println("[b] Select env")
-	fmt.Println("[c] Select namespace")
-	fmt.Println("[d] Exit")
-	fmt.Print("Please select app: ")
+	printBulue.Println("[a] Search app")
+	printBulue.Println("[b] Select env")
+	printBulue.Println("[c] Select namespace")
+	printBulue.Println("[d] Exit")
+	printGreen.Print("Please select app: ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
 		optionInt64, _ := strconv.ParseInt(option, 10, 32)
@@ -62,12 +62,12 @@ func (m *AppMenu) ShowMenu() {
 		if optionInt >= 0 && optionInt < len(m.Status.Client.ListAppsForNamespace(m.Status.Namespace).Items) {
 			m.SelectApp(optionInt)
 		} else {
-			fmt.Println("Paramter parse error.")
+			printRed.Println("Paramter parse error.")
 		}
 	} else {
 		switch option {
 		case "a":
-			fmt.Print("Please input app: ")
+			printGreen.Print("Please input app: ")
 			fmt.Scan(&m.appSearch)
 			m.ShowMenu()
 		case "b":
@@ -77,7 +77,7 @@ func (m *AppMenu) ShowMenu() {
 		case "d":
 			m.Close()
 		default:
-			fmt.Println("Paramter parse error")
+			printRed.Println("Paramter parse error")
 		}
 	}
 }
@@ -110,6 +110,6 @@ func (m *AppMenu) SelectLogFilter(option int) {
 }
 
 func (m *AppMenu) Close() {
-	fmt.Println("Exiting...")
+	printCyan.Println("Exiting...")
 	os.Exit(0)
 }

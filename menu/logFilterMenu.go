@@ -46,12 +46,12 @@ func (m *LogFilterMenu) ShowMenu() {
 		fmt.Printf("[%d] %s\n", index+1, filter)
 	}
 
-	fmt.Println("[a] Select env")
-	fmt.Println("[b] Select namespace")
-	fmt.Println("[c] Select app")
-	fmt.Println("[d] Select command")
-	fmt.Println("[e] Exit")
-	fmt.Print("Please select log filter (Ctrl+C quit): ")
+	printBulue.Println("[a] Select env")
+	printBulue.Println("[b] Select namespace")
+	printBulue.Println("[c] Select app")
+	printBulue.Println("[d] Select command")
+	printBulue.Println("[e] Exit")
+	printGreen.Print("Please select log filter (Ctrl+C quit): ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
 		optionInt64, _ := strconv.ParseInt(option, 10, 32)
@@ -60,7 +60,7 @@ func (m *LogFilterMenu) ShowMenu() {
 			m.SelectLogFilter(optionInt)
 		} else {
 			m.filterRec = make([]string, 0)
-			fmt.Println("Paramter parse error.")
+			printRed.Println("Paramter parse error.")
 		}
 	} else {
 		switch option {
@@ -76,7 +76,7 @@ func (m *LogFilterMenu) ShowMenu() {
 			m.Close()
 		default:
 			m.filterRec = make([]string, 0)
-			fmt.Println("Parameter parse error")
+			printRed.Println("Parameter parse error")
 		}
 	}
 }
@@ -103,7 +103,7 @@ func (m *LogFilterMenu) SelectLogFilter(option int) {
 	m.Status.LogFilterObj = m.filterRegister[key]
 	keyword := ""
 	if strings.Contains(key, "Keyword") {
-		fmt.Print("Please input keyword: ")
+		printGreen.Print("Please input keyword: ")
 		fmt.Scan(&keyword)
 	}
 	m.PringLog(keyword)
@@ -111,7 +111,7 @@ func (m *LogFilterMenu) SelectLogFilter(option int) {
 }
 
 func (m *LogFilterMenu) Close() {
-	fmt.Println("Exiting...")
+	printCyan.Println("Exiting...")
 	os.Exit(0)
 }
 
@@ -123,7 +123,7 @@ func (m *LogFilterMenu) PringLog(extra ...string) {
 	} else if m.Status.Command == "Follow Log" {
 		m.Status.Client.FollowLogForPods(m.Status.Namespace, podList, m.Status.LogFilterObj, extra...)
 	} else {
-		fmt.Println("Log model select error!")
+		printRed.Println("Log model select error!")
 	}
 
 }

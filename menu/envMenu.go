@@ -49,8 +49,8 @@ func (m *EnvMenu) ShowMenu() {
 	for i := 0; i < len(m.EnvRec); i++ {
 		fmt.Printf("[%d] %s\n", i+1, m.EnvRec[i])
 	}
-	fmt.Println("[a] Exit")
-	fmt.Print("Please select env: ")
+	printBulue.Println("[a] Exit")
+	printGreen.Print("Please select env: ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
 		optionInt64, _ := strconv.ParseInt(option, 10, 32)
@@ -59,7 +59,7 @@ func (m *EnvMenu) ShowMenu() {
 			m.SelectEnv(optionInt)
 		} else {
 			m.EnvRec = make([]string, 0)
-			fmt.Println("Paramter parse error.")
+			printRed.Println("Paramter parse error.")
 		}
 	} else {
 		switch option {
@@ -67,7 +67,7 @@ func (m *EnvMenu) ShowMenu() {
 			m.Close()
 		default:
 			m.EnvRec = make([]string, 0)
-			fmt.Println("Paramter parse error.")
+			printRed.Println("Paramter parse error.")
 		}
 	}
 }
@@ -101,7 +101,7 @@ func (m *EnvMenu) SelectLogFilter(option int) {
 }
 
 func (m *EnvMenu) Close() {
-	fmt.Println("Exiting...")
+	printCyan.Println("Exiting...")
 	os.Exit(0)
 }
 
