@@ -5,10 +5,11 @@ Support to 1) select output log model, 2) back to env, namespace, app menu, 3) e
 package menu
 
 import (
-	"easyLog/util"
 	"fmt"
 	"os"
+	"strconv"
 
+	"github.com/olekukonko/tablewriter"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -28,11 +29,11 @@ func (m *CommandMenu) ShowMenu() {
 	fmt.Println("[2] Follow log")
 	fmt.Println("[3] Fetch pod info")
 	fmt.Println("[4] Execute shell")
-	fmt.Println("[a] Select env")
-	fmt.Println("[b] Select namespace")
-	fmt.Println("[c] Select app")
-	fmt.Println("[d] Exit")
-	fmt.Print("Please select command: ")
+	printBulue.Println("[a] Select env")
+	printBulue.Println("[b] Select namespace")
+	printBulue.Println("[c] Select app")
+	printBulue.Println("[d] Exit")
+	printGreen.Print("Please select command: ")
 	fmt.Scan(&option)
 	if m.isDigit(option) {
 		switch option {
@@ -45,7 +46,7 @@ func (m *CommandMenu) ShowMenu() {
 		case "4":
 			m.SelectCommand("Execute Shell")
 		default:
-			fmt.Println("Paramter parse error")
+			printRed.Println("Paramter parse error")
 		}
 	} else {
 		switch option {
@@ -58,7 +59,7 @@ func (m *CommandMenu) ShowMenu() {
 		case "d":
 			m.Close()
 		default:
-			fmt.Println("Paramter parse error")
+			printRed.Println("Paramter parse error")
 		}
 	}
 }
@@ -95,19 +96,23 @@ func (m *CommandMenu) SelectLogFilter(option int) {
 }
 
 func (m *CommandMenu) Close() {
-	fmt.Println("Exiting...")
+	printCyan.Println("Exiting...")
 	os.Exit(0)
 }
 
 func (m *CommandMenu) FetchPodsInfo() {
 	podList := m.Status.Client.ListPodsForApp(m.Status.Namespace, m.Status.App)
+	data := [][]string{}
 	for _, pod := range podList.Items {
-		util.PrintSplitLine("-")
-		printPodInfo(pod)
+		data = append(data, getPodInfo(pod))
 	}
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Pod Name", "Pod IP", "Status", "Ready", "Restart Count"})
+	table.AppendBulk(data)
+	table.Render()
 }
 
-func printPodInfo(pod v1.Pod) {
+func getPodInfo(pod v1.Pod) []string {
 	name := pod.ObjectMeta.Name
 	ip := pod.Status.PodIP
 	port := pod.Annotations["prometheus.io/port"]
@@ -123,10 +128,9 @@ func printPodInfo(pod v1.Pod) {
 	if len(pod.Status.ContainerStatuses) > 0 {
 		restart = pod.Status.ContainerStatuses[0].RestartCount
 	}
-	fmt.Printf("Pod Name: %s\n", name)
-	fmt.Printf("Pod IP: %s\n", ip)
-	fmt.Printf("Pod Port: %s\n", port)
-	fmt.Printf("Status: %v\n", status)
-	fmt.Printf("Ready: %v\n", ready)
-	fmt.Printf("Restart Count: %d\n", restart)
+	if port != "" {
+		ip = fmt.Sprintf("%s:%s", ip, port)
+	}
+	return []string{name, ip, status, strconv.FormatBool(ready), strconv.FormatInt(int64(restart), 10)}
+
 }
