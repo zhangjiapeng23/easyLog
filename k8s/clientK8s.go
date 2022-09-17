@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"easyLog/filters"
+
 	"fmt"
 	"io"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"syscall"
 
+	"github.com/fatih/color"
 	"golang.org/x/term"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -24,9 +26,12 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-// single instance
 var (
-	clientInstance = make(map[string]*Client)
+	// single instance
+	clientInstance       = make(map[string]*Client)
+	sinceTime      int64 = 2 * 60 * 60
+	printYellow          = color.New(color.FgHiYellow)
+	printRed             = color.New(color.FgHiRed)
 )
 
 type Client struct {
@@ -123,27 +128,23 @@ func (c *Client) ListPodsForApp(ns string, app string) *corev1.PodList {
 // follo log output
 func (c *Client) FollowLogForPods(ns string, podList *corev1.PodList,
 	filter func(log chan []byte, filterLog chan *filters.Log, extra ...string), extra ...string) {
-	log := make(chan []byte)
-	filterLog := make(chan *filters.Log)
-	quit := make(chan int, 1)
+	// 初始化关闭广播通道
+	filters.Done = make(chan struct{})
+	log := make(chan []byte, 10)
+	filterLog := make(chan *filters.Log, 10)
 	for _, pod := range podList.Items {
-		go c.followLogForPods(log, quit, ns, pod.Name)
+		go c.followLogForPods(log, ns, pod.Name)
 	}
 	go filter(log, filterLog, extra...)
 	// listent ctrl+c quit
-	SetupCloseHandler(quit)
+	SetupCloseHandler()
+
 	for {
 		select {
-		// quit signal, exit loop
-		case signal := <-quit:
-			if signal == 0 {
-				quit <- signal
-				fmt.Println("Closing log output...")
-			} else {
-				fmt.Println("Connection exception, abort output...")
-			}
+		case <-filters.Done:
+			printRed.Println("Closing log output...")
 			return
-		// from filter channel get new log
+		// from filter channel get new log and print
 		case log := <-filterLog:
 			log.String()
 		}
@@ -153,33 +154,33 @@ func (c *Client) FollowLogForPods(ns string, podList *corev1.PodList,
 // Only print log to current time, doesn't keep output
 func (c *Client) PrintLogForPods(ns string, PodList *corev1.PodList,
 	filter func(log chan []byte, filterLog chan *filters.Log, extra ...string), extra ...string) {
-	log := make(chan []byte)
-	filterLog := make(chan *filters.Log)
-	quit := make(chan int, 1)
+	// 初始化关闭广播通道
+	filters.Done = make(chan struct{})
+	log := make(chan []byte, 10)
+	filterLog := make(chan *filters.Log, 10)
 	for _, pod := range PodList.Items {
-		go c.printLogForPod(log, quit, ns, pod.Name)
+		go c.printLogForPod(log, ns, pod.Name)
 	}
 	go filter(log, filterLog, extra...)
-	SetupCloseHandler(quit)
+	SetupCloseHandler()
+
 	for {
 		select {
-		case signal := <-quit:
-			if signal == 0 {
-				quit <- signal
-				fmt.Println("Closing log output...")
-			} else {
-				fmt.Println("Connection exception, abort output...")
-			}
+		case <-filters.Done:
+			printRed.Println("Closing log output...")
 			return
 		case log := <-filterLog:
 			log.String()
-
 		}
 	}
 }
 
-func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, podName string) {
-	var sinceTime int64 = 2 * 60 * 60
+func (c *Client) followLogForPods(log chan []byte, ns string, podName string) {
+	// 如果提前终止则直接返回
+	if cancelled() {
+		return
+	}
+
 	opts := &corev1.PodLogOptions{
 		Follow:       true,
 		SinceSeconds: &sinceTime,
@@ -194,14 +195,14 @@ func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, pod
 	r := bufio.NewReader(readCloser)
 	for {
 		select {
-		case signal := <-quit:
-			quit <- signal
+		case <-filters.Done:
 			return
 		default:
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
-				// fmt.Fprintln(os.Stderr, err.Error())
-				quit <- 1
+				if err != io.EOF && !cancelled() {
+					close(filters.Done)
+				}
 				return
 			}
 			log <- bytes
@@ -209,8 +210,12 @@ func (c *Client) followLogForPods(log chan []byte, quit chan int, ns string, pod
 	}
 }
 
-func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podName string) {
-	var sinceTime int64 = 2 * 60 * 60
+func (c *Client) printLogForPod(log chan []byte, ns string, podName string) {
+	// 如果提前终止则直接返回
+	if cancelled() {
+		return
+	}
+
 	opts := &corev1.PodLogOptions{
 		Follow:       false,
 		SinceSeconds: &sinceTime,
@@ -225,15 +230,13 @@ func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podNa
 	r := bufio.NewReader(readCloser)
 	for {
 		select {
-		case signal := <-quit:
-			quit <- signal
+		case <-filters.Done:
 			return
 		default:
 			bytes, err := r.ReadBytes('\n')
 			if err != nil {
-				if err != io.EOF {
-					// fmt.Fprintln(os.Stderr, err.Error())
-					quit <- 1
+				if err != io.EOF && !cancelled() {
+					close(filters.Done)
 				}
 				return
 			}
@@ -243,13 +246,26 @@ func (c *Client) printLogForPod(log chan []byte, quit chan int, ns string, podNa
 }
 
 // listen Ctrl+C to termination log output
-func SetupCloseHandler(quit chan int) {
+func SetupCloseHandler() {
 	c := make(chan os.Signal, 2)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
-		<-c
-		quit <- 0
+		select {
+		case <-c:
+			close(filters.Done)
+		case <-filters.Done:
+			return
+		}
 	}()
+}
+
+func cancelled() bool {
+	select {
+	case <-filters.Done:
+		return true
+	default:
+		return false
+	}
 }
 
 func (c *Client) ExecPod(ns string, podName string) {
@@ -290,7 +306,7 @@ func (c *Client) ExecPod(ns string, podName string) {
 		fmt.Fprintln(os.Stderr, err.Error())
 	}
 
-	fmt.Print("\r输入回车继续...")
+	printYellow.Print("\r输入回车继续...")
 	screen.Read(make([]byte, 0))
 	fmt.Print("\r")
 	time.Sleep(time.Second * 1)
