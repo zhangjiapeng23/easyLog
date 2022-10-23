@@ -54,8 +54,8 @@ func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 					title = strings.Trim(string(logMsg), " ")
 				}
 				// 当下一日志已经产生，就直接发送
-				if logEntity != nil && logEntity.IsMatch && !logEntity.IsSend {
-					logEntity.IsSend = true
+				if logEntity != nil && logEntity.IsMatch && !logEntity.IsSend() {
+					logEntity.MarkSend()
 					filterLog <- logEntity
 				}
 				logEntity = NewLog(string(dateTimeStr), string(level), title)
@@ -64,8 +64,8 @@ func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 					logEntity.Keyword = keyword
 					go func(log *Log) {
 						time.AfterFunc(2*time.Second, func() {
-							if !log.IsSend {
-								log.IsSend = true
+							if !log.IsSend() {
+								log.MarkSend()
 								filterLog <- log
 							}
 						})
@@ -79,8 +79,8 @@ func KeywordFilter(log chan []byte, filterLog chan *Log, extra ...string) {
 					logEntity.Keyword = keyword
 					go func(log *Log) {
 						time.AfterFunc(2*time.Second, func() {
-							if !log.IsSend {
-								log.IsSend = true
+							if !log.IsSend() {
+								log.MarkSend()
 								filterLog <- log
 							}
 						})
@@ -125,15 +125,15 @@ func levelFilter(level string, log chan []byte, filterLog chan *Log, extra ...st
 					title = strings.Trim(string(logMsg), " ")
 				}
 				// 当下一日志已经产生，就直接发送
-				if logEntity != nil && !logEntity.IsSend {
-					logEntity.IsSend = true
+				if logEntity != nil && !logEntity.IsSend() {
+					logEntity.MarkSend()
 					filterLog <- logEntity
 				}
 				logEntity = NewLog(string(dateTimeStr), string(level), title)
 				go func(log *Log) {
 					time.AfterFunc(2*time.Second, func() {
-						if !log.IsSend {
-							log.IsSend = true
+						if !log.IsSend() {
+							log.MarkSend()
 							filterLog <- log
 						}
 					})

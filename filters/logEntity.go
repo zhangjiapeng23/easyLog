@@ -13,6 +13,7 @@ import (
 var (
 	printBlue = color.New(color.FgBlue)
 	printRed  = color.New(color.FgHiRed)
+	sendLoack sync.Mutex
 )
 
 type Log struct {
@@ -21,7 +22,7 @@ type Log struct {
 	title       string
 	LogDetail   [][]byte
 	IsMatch     bool
-	IsSend      bool
+	send        bool
 	Keyword     string
 	originLog   []byte
 }
@@ -42,9 +43,6 @@ func (l *Log) AddLogDetail(error []byte) {
 }
 
 func (l *Log) String() {
-	var printLock sync.Mutex
-	printLock.Lock()
-	defer printLock.Unlock()
 	if len(l.originLog) > 0 {
 		fmt.Print(string(l.originLog))
 	} else {
@@ -73,6 +71,18 @@ func (l *Log) String() {
 		}
 		util.PrintSplitLine("-")
 	}
+}
+
+func (l *Log) MarkSend() {
+	sendLoack.Lock()
+	defer sendLoack.Unlock()
+	l.send = true
+}
+
+func (l *Log) IsSend() bool {
+	sendLoack.Lock()
+	defer sendLoack.Unlock()
+	return l.send
 }
 
 func colorKeyWord(s string, keyword string) string {
